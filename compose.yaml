@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  
+  aria2-next-ng:
+    image: aria2-next-ng:latest
+    container_name: aria2-next-ng
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK_SET=022
+    networks:
+     - default
+    ports:
+      - 6800:6800
+      - 6880:6880
+      - 6888:6888       # BitTorrent 监听，按需
+      - 6888:6888/udp
+    volumes:
+      - ./aria2-next/config:/config
+      - ./aria2-next/state:/var/lib/aria2-next
+      - ./downloads/:/downloads  # 挂载下载目录
+    command:
+      - --conf-path=/config/aria2.conf
+      - --state-dir=/var/lib/aria2-next
+    # 安全基线（参照aria2-next官方 packaging/docker/compose.yml）
+    # read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+    cpus: 2
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent localhost:6880 >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
