@@ -1,0 +1,55 @@
+# AriaNg 静态站点配置模板
+# 由 entrypoint 依据 ARIANG_PORT 渲染为 /etc/nginx/nginx.conf
+# 说明：
+#   1. 不监听 IPv6（listen [::]），宿主/容器关闭 IPv6 时会导致 nginx 启动失败
+#   2. 所有可写路径置于 /tmp，兼容 read_only 只读根文件系统 + tmpfs /tmp
+
+worker_processes auto;
+daemon on;
+pid /tmp/nginx.pid;
+error_log /dev/stderr warn;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    access_log /dev/stdout;
+
+    sendfile on;
+    tcp_nopush on;
+    keepalive_timeout 65;
+    server_tokens off;
+
+    # 全部临时/可写目录指向 /tmp
+    client_body_temp_path /tmp/nginx/client_body;
+    proxy_temp_path /tmp/nginx/proxy;
+    fastcgi_temp_path /tmp/nginx/fastcgi;
+    uwsgi_temp_path /tmp/nginx/uwsgi;
+    scgi_temp_path /tmp/nginx/scgi;
+
+    server {
+        listen __ARIANG_PORT__;
+        server_name _;
+
+        root /var/www/ariang;
+        index index.html;
+
+        charset utf-8;
+
+        # AriaNg 为单页应用（AllInOne 单文件），未知路径回退到 index.html
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        # 健康检查
+        location = /healthz {
+            access_log off;
+            default_type text/plain;
+            return 200 "ok\n";
+        }
+    }
+}
